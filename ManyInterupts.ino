@@ -54,6 +54,7 @@ long nextPRINTchange = 1000; //time in ms.
 //Variables for ISRs. Volatile so compilers will not eat them.
 volatile long INT0_vect_counter = 0;
 volatile long INT1_vect_counter = 0;
+volatile long PCINT2_counter = 0;    // PCINT20 aka For Pin D4
 volatile long ANALOG_COMP_vect_counter = 0;
 
 //Functions
@@ -108,23 +109,6 @@ void loop() {
 }// end loop()
 
 //Setup for ISRs and ISRs.
-void setup_ANALOG_COMP(void) {
-  //Set up Analog Comparator Status Register
-  ACSR =
-    (0 << ACD) | // Analog Comparator: Enabled
-    (0 << ACBG) | // Analog Comparator Bandgap Select: AIN0 is applied to the positive input
-    (0 << ACO) | // Analog Comparator Output: Off
-    (1 << ACI) | // Analog Comparator Interrupt Flag: Clear Pending Interrupt
-    (1 << ACIE) | // Analog Comparator Interrupt: Enabled
-    (0 << ACIC) | // Analog Comparator Input Capture: Disabled
-    (1 << ACIS1) | (1 < ACIS0); // Analog Comparator Interrupt Mode: Comparator Interrupt on Rising Output Edge
-
-  DIDR1 = (1 << AIN1D) | (1 << AIN0D) ; // Disable digital inputs on analog comparator.
-}//end setup_ANALOG_COMP
-
-ISR(ANALOG_COMP_vect) {
-  ANALOG_COMP_vect_counter++;
-}//end ANALOG_COMP_vect
 
 void setup_INT0(void) {
   //Set up INT0 for rise edge Also set up INT1 for falling
@@ -140,7 +124,7 @@ void setup_INT0(void) {
   //Enable both INT0 and INT1
   EIMSK =
     (1 << INT0) | // Mask for INT0
-    (1 << INT1) | // Mask for INT1
+    (1 << INT1) & // Mask for INT1
     0x03;                           //Upper 6 MSB zero.
 }//end setup_INT0
 
@@ -159,7 +143,7 @@ void setup_INT1(void) {
   //Enable both INT0 and INT1
   EIMSK =
     (1 << INT0) | // Mask for INT0
-    (1 << INT1) | // Mask for INT1
+    (1 << INT1) & // Mask for INT1
     0x03;                           //Upper 6 MSB zero.
 }//end setup_INT1
 
@@ -170,3 +154,48 @@ ISR(INT0_vect) {
 ISR(INT1_vect) {
   INT1_vect_counter++;
 }//end INT1_vect
+
+void setup_ANALOG_COMP(void) {
+  //Set up Analog Comparator Status Register
+  ACSR =
+    (0 << ACD) | // Analog Comparator: Enabled
+    (0 << ACBG) | // Analog Comparator Bandgap Select: AIN0 is applied to the positive input
+    (0 << ACO) | // Analog Comparator Output: Off
+    (1 << ACI) | // Analog Comparator Interrupt Flag: Clear Pending Interrupt
+    (1 << ACIE) | // Analog Comparator Interrupt: Enabled
+    (0 << ACIC) | // Analog Comparator Input Capture: Disabled
+    (1 << ACIS1) | (1 < ACIS0); // Analog Comparator Interrupt Mode: Comparator Interrupt on Rising Output Edge
+
+  DIDR1 = (1 << AIN1D) | (1 << AIN0D) ; // Disable digital inputs on analog comparator.
+}//end setup_ANALOG_COMP
+
+ISR(ANALOG_COMP_vect) {
+  ANALOG_COMP_vect_counter++;
+}//end ANALOG_COMP_vect
+
+// A template place holder for ISR setup and ISR
+/*
+  void setup_PLACE_HOLDER(void) {
+  //Set up PLACE_HOLDER Status Register
+  PLACESR =
+    (0 << ACD) | // Analog Comparator: Enabled
+    (0 << ACBG) | // Analog Comparator Bandgap Select: AIN0 is applied to the positive input
+    (0 << ACO) | // Analog Comparator Output: Off
+    (1 << ACI) | // Analog Comparator Interrupt Flag: Clear Pending Interrupt
+    (1 << ACIE) | // Analog Comparator Interrupt: Enabled
+    (0 << ACIC) | // Analog Comparator Input Capture: Disabled
+    (1 << ACIS1) | (1 < ACIS0); // Analog Comparator Interrupt Mode: Comparator Interrupt on Rising Output Edge
+
+  DIDR1 = (1 << AIN1D) | (1 << AIN0D) ; // Disable digital inputs on analog comparator.
+
+   EIMSK =
+    (1 << INT0) | // Mask for INT0
+    (1 << INT1) | // Mask for INT1
+    0x03;                           //Upper 6 MSB zero.
+  }//end setup_ANALOG_COMP
+
+  ISR(PLACE_HOLDER_vect) {
+  PLACE_HOLDER_vect_counter++;
+  }//end PLACE_HOLDER_vect
+
+*/
