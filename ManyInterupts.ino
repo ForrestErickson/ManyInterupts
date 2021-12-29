@@ -36,6 +36,7 @@
   26 0x0032 SPM_Ready Store Program Memory Ready
 
   Hardware setup:
+  Square wave output on pin 9. Connect as if function generator.
   Function generator with 4Vp-p square wave into D2, D3, D4 and D6
 */
 
@@ -82,14 +83,13 @@ void setup() {
   Serial.begin(BAUDRATE);
   delay(100);
   Serial.println("\n\n\n\nBeginning ManyInterupts");
-  //  Serial.println("INT0= " + String(INT0));
-  //  Serial.println("INT1= " + String(INT1));
-  //  Serial.println("PCINT0= " + String(PCINT0));
-  //  Serial.println("ANALOG_COMP= " + String(ANALOG_COMP));
+
+  analogWrite(9, 127); //Output a square wave (pwm 50%) for testing counters.
 
   setup_INT0();       //Actualy sets both INT0 and INT1 up and enables
-  //  setup_INT1();       //Todo
-  setup_ANALOG_COMP();
+  //  setup_INT1();       //Todo. Make independent of INT0.
+  setup_PCINT2();     // Setup for pin PD4 interrup on change
+  setup_ANALOG_COMP(); // Setup for PD6 input.
 
   digitalWrite(LED_BUILTIN, LOW);   // turn the LED off
 }
@@ -99,11 +99,18 @@ void loop() {
 
   //Print out the ISR count(s) every second.
   if (((millis() - lastPRINTtime) > nextPRINTchange) || (millis() < lastPRINTtime)) {
+    noInterrupts();
+    long temp_INT0_vect_counter = INT0_vect_counter;
+    long temp_INT1_vect_counter = INT1_vect_counter;
+    long temp_PCINT2_vect_counter = PCINT2_vect_counter;    // PCINT20 aka For Pin D4
+    long temp_ANALOG_COMP_vect_counter = ANALOG_COMP_vect_counter;
+    interrupts();
     lastPRINTtime = millis();
-    Serial.println("ANALOG_COMP_vect_counter= " + String(ANALOG_COMP_vect_counter));
-    Serial.println("INT0_vect_counter= " + String(INT0_vect_counter));
-    Serial.println("INT1_vect_counter= " + String(INT1_vect_counter));
-    Serial.println("PCINT2_vect_counter= " + String(PCINT2_vect_counter));
+    Serial.println("INT0_vect_counter= " + String(temp_INT0_vect_counter));
+    Serial.println("INT1_vect_counter= " + String(temp_INT1_vect_counter));
+    Serial.println("ANALOG_COMP_vect_counter= " + String(temp_ANALOG_COMP_vect_counter));
+    Serial.println("PCINT2_vect_counter= " + String(temp_PCINT2_vect_counter));
+    Serial.println();
   }//Print once in a while
 
   wink();
@@ -156,6 +163,7 @@ ISR(INT1_vect) {
   INT1_vect_counter++;
 }//end INT1_vect
 
+
 void setup_ANALOG_COMP(void) {
   //Set up Analog Comparator Status Register
   ACSR =
@@ -177,7 +185,7 @@ ISR(ANALOG_COMP_vect) {
 
 //Setup PCINT2 for only PD4 interrupt on change.
 void setup_PCINT2(void) {
-  //Set up PCMSK2 – Pin Change Mask Register 2  
+  //Set up PCMSK2 – Pin Change Mask Register 2
   PCMSK2 =
     (0 << PCINT16) | // Pin PD0
     (0 << PCINT17) | // Pin PD1
@@ -188,13 +196,13 @@ void setup_PCINT2(void) {
     (0 << PCINT22) | // Pin PD6
     (0 << PCINT23);  // Pin PD7
 
-    //PCICR – Pin Change Interrupt Control Register
-  PCICR = (1 << PCIE2) |
-    0x00 ; // Only PCIN2 on PCIF2
+  //PCICR – Pin Change Interrupt Control Register
+  bitSet(PCICR, PCIE2); //Only PCIN2 on PCIF2
 
-    // Status Register (SREG) is set (one)
-    bitSet(SREG, 7); //Eable interups.
-    
+  // Status Register (SREG) is set (one)
+  const int GIE = 7;  //Global Interrupt Enable
+  bitSet(SREG, GIE); //Eable interrupts.
+
 }//end setup_PCINT2
 
 ISR(PCINT2_vect) {
