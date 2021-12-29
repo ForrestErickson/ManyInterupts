@@ -36,7 +36,7 @@
   26 0x0032 SPM_Ready Store Program Memory Ready
 
   Hardware setup:
-  Function generator with 4Vp-p square wave into D2, D3 and D6
+  Function generator with 4Vp-p square wave into D2, D3, D4 and D6
 */
 
 #define BAUDRATE  115200  // Baud rate of UART in bps
@@ -54,7 +54,7 @@ long nextPRINTchange = 1000; //time in ms.
 //Variables for ISRs. Volatile so compilers will not eat them.
 volatile long INT0_vect_counter = 0;
 volatile long INT1_vect_counter = 0;
-volatile long PCINT2_counter = 0;    // PCINT20 aka For Pin D4
+volatile long PCINT2_vect_counter = 0;    // PCINT20 aka For Pin D4
 volatile long ANALOG_COMP_vect_counter = 0;
 
 //Functions
@@ -103,6 +103,7 @@ void loop() {
     Serial.println("ANALOG_COMP_vect_counter= " + String(ANALOG_COMP_vect_counter));
     Serial.println("INT0_vect_counter= " + String(INT0_vect_counter));
     Serial.println("INT1_vect_counter= " + String(INT1_vect_counter));
+    Serial.println("PCINT2_vect_counter= " + String(PCINT2_vect_counter));
   }//Print once in a while
 
   wink();
@@ -172,6 +173,35 @@ void setup_ANALOG_COMP(void) {
 ISR(ANALOG_COMP_vect) {
   ANALOG_COMP_vect_counter++;
 }//end ANALOG_COMP_vect
+
+
+//Setup PCINT2 for only PD4 interrupt on change.
+void setup_PCINT2(void) {
+  //Set up PCMSK2 – Pin Change Mask Register 2  
+  PCMSK2 =
+    (0 << PCINT16) | // Pin PD0
+    (0 << PCINT17) | // Pin PD1
+    (0 << PCINT18) | // Pin PD2
+    (0 << PCINT19) | // Pin PD3
+    (1 << PCINT20) | // Pin PD4
+    (0 << PCINT21) | // Pin PD5
+    (0 << PCINT22) | // Pin PD6
+    (0 << PCINT23);  // Pin PD7
+
+    //PCICR – Pin Change Interrupt Control Register
+  PCICR = (1 << PCIE2) |
+    0x00 ; // Only PCIN2 on PCIF2
+
+    // Status Register (SREG) is set (one)
+    bitSet(SREG, 7); //Eable interups.
+    
+}//end setup_PCINT2
+
+ISR(PCINT2_vect) {
+  PCINT2_vect_counter++;
+}//end PCINT2_vect
+
+
 
 // A template place holder for ISR setup and ISR
 /*
