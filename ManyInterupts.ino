@@ -5,6 +5,7 @@
     License: Public Domain,
     Warrantee: This program is designed to kill you but is not guarenteed to do so.
     It will also end all life on earth but may take a billion years or more.
+    Revision: 20211230 Impliment ISR for 0x0028 USART_TX USART, Tx Complete
 
   From data sheet ATmega48A-PA-88A-PA-168A-PA-328-P-DS-DS40002061B.pdf page 74.
   VectorNo. Program Address(2) Source Interrupt Definition
@@ -36,11 +37,20 @@
   26 0x0032 SPM_Ready Store Program Memory Ready
 
   Hardware setup:
-  Square wave output on pin 9. Connect as if function generator.
+  Square wave output on pin D9. Connect as if function generator.
   Function generator with 4Vp-p square wave into D2, D3, D4 and D6
+
+  RS-485 Output enable. Drive DI and /RE pin on for example SN65HVD485E (Not actualy tested, FLE 20211230)
+  -Connect UNO TX pin D1 to SN65HVD485E Pin4
+  -Connect UNO RX pin D0 to SN65HVD485E Pin1
+  -Connect UNO TX pin D5 to SN65HVD485E Pin2 and Pin3.
+
 */
 
 #define BAUDRATE  115200  // Baud rate of UART in bps
+
+//IO pins
+const int DE485 = 5;   // DE signal to RS-485 driver chip
 
 //Wink constants
 const int HIGH_TIME_LED = 900;
@@ -57,6 +67,7 @@ volatile long INT0_vect_counter = 0;
 volatile long INT1_vect_counter = 0;
 volatile long PCINT2_vect_counter = 0;    // PCINT20 aka For Pin D4
 volatile long ANALOG_COMP_vect_counter = 0;
+volatile long USART_TX_vect_counter = 0 ;   //This is ISR for RS485 enable control
 
 //Functions
 
@@ -90,6 +101,9 @@ void setup() {
   //  setup_INT1();       //Todo. Make independent of INT0.
   setup_PCINT2();     // Setup for pin PD4 interrup on change
   setup_ANALOG_COMP(); // Setup for PD6 input.
+  setup_USART_TX();     // Setup for IST to clear RS-485 output enable
+  pinMode(DE485, OUTPUT);
+  digitalWrite(DE485, LOW); //Start with 485 in receive.
 
   digitalWrite(LED_BUILTIN, LOW);   // turn the LED off
 }
@@ -104,14 +118,17 @@ void loop() {
     long temp_INT1_vect_counter = INT1_vect_counter;
     long temp_PCINT2_vect_counter = PCINT2_vect_counter;    // PCINT20 aka For Pin D4
     long temp_ANALOG_COMP_vect_counter = ANALOG_COMP_vect_counter;
+    long temp_USART_TX_vect_counter = USART_TX_vect_counter;
     interrupts();
     lastPRINTtime = millis();
+    digitalWrite(DE485, HIGH); // Set RS-485 driver high to transmit.
     Serial.println("INT0_vect_counter= " + String(temp_INT0_vect_counter));
     Serial.println("INT1_vect_counter= " + String(temp_INT1_vect_counter));
     Serial.println("ANALOG_COMP_vect_counter= " + String(temp_ANALOG_COMP_vect_counter));
     Serial.println("PCINT2_vect_counter= " + String(temp_PCINT2_vect_counter));
+    Serial.println("USART_TX_vect_counter= " + String(temp_USART_TX_vect_counter));
     Serial.println();
-  }//Print once in a while
+  }//end print once in a while
 
   wink();
 }// end loop()
@@ -202,13 +219,38 @@ void setup_PCINT2(void) {
   // Status Register (SREG) is set (one)
   const int GIE = 7;  //Global Interrupt Enable
   bitSet(SREG, GIE); //Eable interrupts.
-
 }//end setup_PCINT2
 
 ISR(PCINT2_vect) {
   PCINT2_vect_counter++;
 }//end PCINT2_vect
 
+
+//ISR for 0x0028 USART_TX USART, Tx
+//At end of transmission the interuppt will set RS-485 to receive.
+void setup_USART_TX(void) {
+  //Set up USART_TX interup Status Register
+  //Setup for TX complete interupt enable. Transmitter enable.
+  UCSR0B =
+    (0 << RXCIE0) | //  RX Complete Interrupt Enable 0
+    (1 << TXCIE0) | //  TX Complete Interrupt Enable 0
+    (0 << UDRIE0) | //  USART Data Register Empty Interrupt Enable 0
+    (0 << RXEN0) | //   Receiver Enable 0
+    (1 << TXEN0) | // Transmitter Enable n
+    (0 << UCSZ00) | //  Character Size 0
+    (0 << RXB80) |  // Receive Data Bit 8 n
+    (0 < TXB80);    //    Transmit Data Bit 8 n
+
+  //No seperate enable for global interups.
+  // Status Register. Uncomment the next two lines if GIE needed in this setup.
+  //  const int GIE = 7;  //Global Interrupt Enable
+  //  bitSet(SREG, GIE); //Eable interrupts.
+}//end setup_USART_TX
+
+ISR(USART_TX_vect) {
+  USART_TX_vect_counter++;
+  digitalWrite(DE485, LOW); // 485 back to receive.
+}//end _USART_TX_vect
 
 
 // A template place holder for ISR setup and ISR
@@ -224,13 +266,13 @@ ISR(PCINT2_vect) {
     (0 << ACIC) | // Analog Comparator Input Capture: Disabled
     (1 << ACIS1) | (1 < ACIS0); // Analog Comparator Interrupt Mode: Comparator Interrupt on Rising Output Edge
 
-  DIDR1 = (1 << AIN1D) | (1 << AIN0D) ; // Disable digital inputs on analog comparator.
+  PLACESR2 = (1 << AIN1D) | (1 << AIN0D) ; // Disable digital inputs on analog comparator.
 
-   EIMSK =
+   PLACESR3 =
     (1 << INT0) | // Mask for INT0
     (1 << INT1) | // Mask for INT1
     0x03;                           //Upper 6 MSB zero.
-  }//end setup_ANALOG_COMP
+  }//end setup_PLACE_HOLDER
 
   ISR(PLACE_HOLDER_vect) {
   PLACE_HOLDER_vect_counter++;
