@@ -6,6 +6,7 @@
     Warrantee: This program is designed to kill you but is not guarenteed to do so.
     It will also end all life on earth but may take a billion years or more.
     Revision: 20211230 Impliment ISR for 0x0028 USART_TX USART, Tx Complete
+    Revision: 20220105 Move Analog Comparitor code to matche the vector interupt table order.
 
   From data sheet ATmega48A-PA-88A-PA-168A-PA-328-P-DS-DS40002061B.pdf page 74.
   VectorNo. Program Address(2) Source Interrupt Definition
@@ -117,16 +118,16 @@ void loop() {
     long temp_INT0_vect_counter = INT0_vect_counter;
     long temp_INT1_vect_counter = INT1_vect_counter;
     long temp_PCINT2_vect_counter = PCINT2_vect_counter;    // PCINT20 aka For Pin D4
-    long temp_ANALOG_COMP_vect_counter = ANALOG_COMP_vect_counter;
     long temp_USART_TX_vect_counter = USART_TX_vect_counter;
+    long temp_ANALOG_COMP_vect_counter = ANALOG_COMP_vect_counter;
     interrupts();
     lastPRINTtime = millis();
     digitalWrite(DE485, HIGH); // Set RS-485 driver high to transmit.
     Serial.println("INT0_vect_counter= " + String(temp_INT0_vect_counter));
     Serial.println("INT1_vect_counter= " + String(temp_INT1_vect_counter));
-    Serial.println("ANALOG_COMP_vect_counter= " + String(temp_ANALOG_COMP_vect_counter));
     Serial.println("PCINT2_vect_counter= " + String(temp_PCINT2_vect_counter));
     Serial.println("USART_TX_vect_counter= " + String(temp_USART_TX_vect_counter));
+    Serial.println("ANALOG_COMP_vect_counter= " + String(temp_ANALOG_COMP_vect_counter));
     Serial.println();
   }//end print once in a while
 
@@ -181,25 +182,6 @@ ISR(INT1_vect) {
 }//end INT1_vect
 
 
-void setup_ANALOG_COMP(void) {
-  //Set up Analog Comparator Status Register
-  ACSR =
-    (0 << ACD) | // Analog Comparator: Enabled
-    (0 << ACBG) | // Analog Comparator Bandgap Select: AIN0 is applied to the positive input
-    (0 << ACO) | // Analog Comparator Output: Off
-    (1 << ACI) | // Analog Comparator Interrupt Flag: Clear Pending Interrupt
-    (1 << ACIE) | // Analog Comparator Interrupt: Enabled
-    (0 << ACIC) | // Analog Comparator Input Capture: Disabled
-    (1 << ACIS1) | (1 < ACIS0); // Analog Comparator Interrupt Mode: Comparator Interrupt on Rising Output Edge
-
-  DIDR1 = (1 << AIN1D) | (1 << AIN0D) ; // Disable digital inputs on analog comparator.
-}//end setup_ANALOG_COMP
-
-ISR(ANALOG_COMP_vect) {
-  ANALOG_COMP_vect_counter++;
-}//end ANALOG_COMP_vect
-
-
 //Setup PCINT2 for only PD4 interrupt on change.
 void setup_PCINT2(void) {
   //Set up PCMSK2 – Pin Change Mask Register 2
@@ -252,6 +234,24 @@ ISR(USART_TX_vect) {
   digitalWrite(DE485, LOW); // 485 back to receive.
 }//end _USART_TX_vect
 
+//Setup and interrupt for Analog Comparitor
+void setup_ANALOG_COMP(void) {
+  //Set up Analog Comparator Status Register
+  ACSR =
+    (0 << ACD) | // Analog Comparator: Enabled
+    (0 << ACBG) | // Analog Comparator Bandgap Select: AIN0 is applied to the positive input
+    (0 << ACO) | // Analog Comparator Output: Off
+    (1 << ACI) | // Analog Comparator Interrupt Flag: Clear Pending Interrupt
+    (1 << ACIE) | // Analog Comparator Interrupt: Enabled
+    (0 << ACIC) | // Analog Comparator Input Capture: Disabled
+    (1 << ACIS1) | (1 < ACIS0); // Analog Comparator Interrupt Mode: Comparator Interrupt on Rising Output Edge
+
+  DIDR1 = (1 << AIN1D) | (1 << AIN0D) ; // Disable digital inputs on analog comparator.
+}//end setup_ANALOG_COMP
+
+ISR(ANALOG_COMP_vect) {
+  ANALOG_COMP_vect_counter++;
+}//end ANALOG_COMP_vect
 
 // A template place holder for ISR setup and ISR
 /*
