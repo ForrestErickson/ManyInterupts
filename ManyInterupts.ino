@@ -7,6 +7,7 @@
     It will also end all life on earth but may take a billion years or more.
     Revision: 20211230 Impliment ISR for 0x0028 USART_TX USART, Tx Complete
     Revision: 20220105 Move Analog Comparitor code to matche the vector interupt table order.
+    Revision: 20220110 Add an ISR for 0x0024 USART_RX USART Rx Complete
 
   From data sheet ATmega48A-PA-88A-PA-168A-PA-328-P-DS-DS40002061B.pdf page 74.
   VectorNo. Program Address(2) Source Interrupt Definition
@@ -67,8 +68,9 @@ long nextPRINTchange = 1000; //time in ms.
 volatile long INT0_vect_counter = 0;
 volatile long INT1_vect_counter = 0;
 volatile long PCINT2_vect_counter = 0;    // PCINT20 aka For Pin D4
-volatile long ANALOG_COMP_vect_counter = 0;
+volatile long USART_RX_vect_counter = 0;  //Lets count RX interupts.
 volatile long USART_TX_vect_counter = 0 ;   //This is ISR for RS485 enable control
+volatile long ANALOG_COMP_vect_counter = 0;
 
 //Functions
 
@@ -101,10 +103,11 @@ void setup() {
   setup_INT0();       //Actualy sets both INT0 and INT1 up and enables
   //  setup_INT1();       //Todo. Make independent of INT0.
   setup_PCINT2();     // Setup for pin PD4 interrup on change
-  setup_ANALOG_COMP(); // Setup for PD6 input.
-  setup_USART_TX();     // Setup for IST to clear RS-485 output enable
+  setup_USART_RX();   // Does TBD?
+  //  setup_USART_TX();     // Setup for IST to clear RS-485 output enable
   pinMode(DE485, OUTPUT);
   digitalWrite(DE485, LOW); //Start with 485 in receive.
+  setup_ANALOG_COMP(); // Setup for PD6 input.
 
   digitalWrite(LED_BUILTIN, LOW);   // turn the LED off
 }
@@ -118,6 +121,7 @@ void loop() {
     long temp_INT0_vect_counter = INT0_vect_counter;
     long temp_INT1_vect_counter = INT1_vect_counter;
     long temp_PCINT2_vect_counter = PCINT2_vect_counter;    // PCINT20 aka For Pin D4
+    long temp_USART_RX_vect_counter = USART_RX_vect_counter;
     long temp_USART_TX_vect_counter = USART_TX_vect_counter;
     long temp_ANALOG_COMP_vect_counter = ANALOG_COMP_vect_counter;
     interrupts();
@@ -126,6 +130,7 @@ void loop() {
     Serial.println("INT0_vect_counter= " + String(temp_INT0_vect_counter));
     Serial.println("INT1_vect_counter= " + String(temp_INT1_vect_counter));
     Serial.println("PCINT2_vect_counter= " + String(temp_PCINT2_vect_counter));
+    Serial.println("USART_RX_vect_counter= " + String(temp_USART_RX_vect_counter));
     Serial.println("USART_TX_vect_counter= " + String(temp_USART_TX_vect_counter));
     Serial.println("ANALOG_COMP_vect_counter= " + String(temp_ANALOG_COMP_vect_counter));
     Serial.println();
@@ -206,6 +211,21 @@ void setup_PCINT2(void) {
 ISR(PCINT2_vect) {
   PCINT2_vect_counter++;
 }//end PCINT2_vect
+
+
+//ToDo 20220113 This does not work for counting RX events.
+// ISR for 0x0024 USART_RX USART Rx Complete
+//Lets count the RX interupts
+void setup_USART_RX(void) {
+  UCSR0B |= (1 << TXCIE0) | (1 << RXEN0) | (1 << RXCIE0); //Enable RX and TX Interupts.
+}//end setup_USART_RX
+
+//Notes: This causes the RX vector counter to increment by about 16000 per the main loop print out.
+//ISR(USART_RX_vect) {
+void serialEvent() {
+  USART_RX_vect_counter++;
+}//end USART_RX_vect
+
 
 
 //ISR for 0x0028 USART_TX USART, Tx
